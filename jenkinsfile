@@ -9,7 +9,7 @@ pipeline {
     artifacts_dir = "${env.WORKSPACE}/artifacts"
     aws_region = "${aws_region}"
     job_root_dir="${env.WORKSPACE}"
-    kubernetes_version= "{kubernetes_version}"
+    kubernetes_version= "${kubernetes_version}"
     }
     
  
@@ -31,7 +31,7 @@ pipeline {
                 	branches: [[name: '*/main']], doGenerateSubmoduleConfigurations: false, 
                 	extensions: [], 
                 	submoduleCfg: [], 
-                	userRemoteConfigs: [[url: 'https://github.com/tushardashpute/eks-pipeline.git']]])
+                	userRemoteConfigs: [[url: 'https://github.com/tushardashpute/eks_cluster_upgrade_from_1.17_to_1.18.git']]])
             }
         }
 
@@ -40,14 +40,24 @@ pipeline {
         steps {
         script {
             env.KUBECONFIG = "${artifacts_dir}/${eks_cluster_name}-kubeconfig"
-            sh 'chmod +x ${WORKSPACE}/generate_kubeconfig_eks.sh'
+            sh 'chmod +x ${WORKSPACE}/*.sh'
         }
         sh(script: '${WORKSPACE}/generate_kubeconfig_eks.sh', label: 'Generate kubeconfig file')
         }
     }
     
+    
+	stage('Check CoreDNS version') {
+	    steps {
+			script{
+				env.COREDNSVERSION = getCommandOutput("kubectl get deployment coredns -n kube-system -o=jsonpath='{\$.spec.template.spec.containers[:1].image}' | grep -oP '(?<=coredns:v).*'")
+				sh(script: '''echo $COREDNSVERSION''', label: 'CoreDNS version')
+			}
+	    }
+	}
+	
     stage('Update EKS control plane') {
-	   // when { expression { shouldUpdateControlPlane(params.kubernetes_version) } }
+	    when { expression { shouldUpdateControlPlane(params.kubernetes_version) } }
 
 	    environment {
 			kubernetes_version = "${params.kubernetes_version}"
@@ -55,16 +65,15 @@ pipeline {
 
 	    steps {
 			script {
-		  //  	sh '''aws eks update-cluster-version \\
-    //                   --region ${aws_region} \\
-    //                   --name ${eks_cluster_name} \\
-    //                   --kubernetes-version  ${kubernetes_version} > cluster-update-output.json'''
+		    	sh '''aws eks update-cluster-version \\
+                      --region ${aws_region} \\
+                      --name ${eks_cluster_name} \\
+                      --kubernetes-version  ${kubernetes_version} > cluster-update-output.json'''
                       
-    //             eks_update_id="jq -r '.update.id' cluster-update-output.json"
-		    	env.control_plane_update_done = 'true'
+                eks_update_id="jq -r '.update.id' cluster-update-output.json"
 		    	env.eks_update_id = "4b14ae3b-cfe2-41c7-a78a-6c06a4ab81a5"
 		    	
-		    	sh '''update_status=$(aws eks describe-update \\
+		    	sh '''env.update_status=$(aws eks describe-update \\
 			    --region "${aws_region}" \\
 			    --name "${eks_cluster_name}" \\
 			    --update-id "${eks_update_id}" |
@@ -105,7 +114,7 @@ pipeline {
 		    ]
 		    def cni_plugin_url = "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.5/config/v1.7/aws-k8s-cni.yaml"
 
-		    sh(script:"""${env.WORKSPACE}/Kubernetes/eks-cluster-jobs/scripts/update_cluster_addons.sh \
+		    sh(script:"""${WORKSPACE}/update_cluster_addons.sh \
 		    	      --kube-proxy-version ${kubeProxyVersions[env.kubernetes_version]} \
 		    	      --coredns-version ${corednsVersions[env.kubernetes_version]} \
 		    	      --cni-url ${cni_plugin_url}""",
@@ -114,6 +123,27 @@ pipeline {
 		}
 	    }
 	}
+	
+ 	stage('Update worker nodes ASGs') 
+	    {
+	    steps {
+			script{
+			
+sh '''nodegroup_name=$(eksctl get nodegroups \\
+			    --region "${aws_region}" \\
+			    --cluster "${eks_cluster_name}"\\
+			    -o json |
+			    jq -r \'.[0].Name\')
+
+eksctl upgrade nodegroup \\
+		    --name= ${nodegroup_name} \\
+		    --cluster ${eks_cluster_name} \\
+		    --kubernetes-version=${kubernetes_version} \\
+		    --region ${aws_region}'''
+		}
+		}
+	} 	
+	
     }
     post {
 	    cleanup {
