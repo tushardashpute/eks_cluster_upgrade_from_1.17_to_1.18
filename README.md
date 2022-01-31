@@ -15,8 +15,13 @@ High Level Steps:
 6. Migrate to new nodegroup
 
 Create Jnkins Job parameterized, Add below 3 parameters:
-1. clester_name
+1. cluster_name
 2. kubernetes_version
 3. aws_region
 
 ![image](https://user-images.githubusercontent.com/74225291/151832515-07c63f7f-917a-49f3-aba0-2bbc996441e8.png)
+
+
+Stages will look like this :
+
+![image](https://user-images.githubusercontent.com/74225291/151833368-1de832b6-975e-4fd1-8f08-fbe03261ff4d.png)
