@@ -13,3 +13,10 @@ High Level Steps:
 
 5. Create a new nodegroup with the updated EKS version
 6. Migrate to new nodegroup
+
+Create Jnkins Job parameterized, Add below 3 parameters:
+1. clester_name
+2. kubernetes_version
+3. aws_region
+
+![image](https://user-images.githubusercontent.com/74225291/151832515-07c63f7f-917a-49f3-aba0-2bbc996441e8.png)
