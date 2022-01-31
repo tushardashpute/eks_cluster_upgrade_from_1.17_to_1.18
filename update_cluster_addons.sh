@@ -73,7 +73,6 @@ else
   	curl -o aws-k8s-cni.yaml ${cni_plugin_url}
   	sed -i -e 's/us-west-2/us-east-1/' aws-k8s-cni.yaml
   	kubectl apply -f aws-k8s-cni.yaml
-	  upgrade CNI version
 
 	  kubectl rollout status daemonset.apps/aws-node \
 		--namespace kube-system
