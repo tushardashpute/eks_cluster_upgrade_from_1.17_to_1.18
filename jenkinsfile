@@ -4,8 +4,7 @@ pipeline {
     agent any
 
     environment {
-    account = "${environment}" 
-    eks_cluster_name = "eksdemo-${account}" 
+    eks_cluster_name = "${cluster_name}" 
     artifacts_dir = "${env.WORKSPACE}/artifacts"
     aws_region = "${aws_region}"
     job_root_dir="${env.WORKSPACE}"
